@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>stlite app</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.72.1/build/stlite.css"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.72.1/build/stlite.js"></script>
+    <script>
+      stlite.mount(
+        {
+          requirements: [
+            "streamlit==1.26.0,",
+            "Pillow==10.2.0,",
+            "numpy==1.26.4,",
+          ],
+          entrypoint: "streamlit_app.py",
+          files: {
+            "streamlit_app.py": `import streamlit as st
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageDraw, ImageFont, ImageColor
+import numpy as np
+import io
+import datetime
+
+def add_timestamp(image, timestamp):
+    image = image.convert("RGBA")
+    draw = ImageDraw.Draw(image)
+
+    font = ImageFont.load_default()
+
+    text = f"Timestamp: {timestamp}"
+
+    text_bbox = draw.textbbox((0, 0), text)
+    text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+    box_padding = 10
+    position = (10, image.height - text_height - box_padding)
+
+    box_width = text_width + 2 * box_padding
+    box_height = text_height + 2 * box_padding
+    box = [(position[0], position[1]), (position[0] + box_width, position[1] + box_height)]
+
+    draw.rectangle(box, fill=(255, 255, 255, 255))  
+    draw.text(position, text, font=font, fill=(0, 0, 0, 255))  
+    return image
+
+st.title("Photo Editor")
+
+image_file = st.file_uploader("Upload an Image", type=["jpg", "jpeg", "png"])
+if not image_file:
+    image_file = st.camera_input("Or Take a Photo")
+
+if image_file:
+    image = Image.open(image_file).convert("RGBA")  
+    st.sidebar.title("Editing Options")
+
+    brightness = st.sidebar.slider("Brightness", 0.1, 2.0, 1.0)
+    contrast = st.sidebar.slider("Contrast", 0.1, 2.0, 1.0)
+    saturation = st.sidebar.slider("Saturation", 0.1, 2.0, 1.0)
+    sharpness = st.sidebar.slider("Sharpness", 0.1, 2.0, 1.0)
+    exposure = st.sidebar.slider("Exposure", 0.1, 2.0, 1.0)
+    hue_shift = st.sidebar.slider("Hue Shift", -180, 180, 0)
+    rotation = st.sidebar.slider("Rotate (degrees)", -180, 180, 0)
+    blur = st.sidebar.slider("Blur", 0, 10, 0)
+
+    add_timestamp_tag = st.sidebar.checkbox("Add Timestamp Tag", False)
+
+    left = st.sidebar.slider("Crop Left", 0.0, 1.0, 0.0)
+    top = st.sidebar.slider("Crop Top", 0.0, 1.0, 0.0)
+    right = st.sidebar.slider("Crop Right", 0.0, 1.0, 1.0)
+    bottom = st.sidebar.slider("Crop Bottom", 0.0, 1.0, 1.0)
+
+    flip_horizontal = st.sidebar.checkbox("Flip Horizontally")
+    flip_vertical = st.sidebar.checkbox("Flip Vertically")
+
+    resize_width = st.sidebar.number_input("Resize Width (pixels)", min_value=1, max_value=5000, value=image.width)
+    resize_height = st.sidebar.number_input("Resize Height (pixels)", min_value=1, max_value=5000, value=image.height)
+
+    filter_option = st.sidebar.selectbox("Apply Filter", ["None", "Grayscale", "Sepia", "Invert Colors", "Edge Enhance", "Detail",  "Vignette"])
+
+    enhancer = ImageEnhance.Brightness(image)
+    image = enhancer.enhance(brightness)
+
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(contrast)
+
+    enhancer = ImageEnhance.Color(image)
+    image = enhancer.enhance(saturation)
+
+    enhancer = ImageEnhance.Sharpness(image)
+    image = enhancer.enhance(sharpness)
+
+    enhancer = ImageEnhance.Brightness(image)
+    image = enhancer.enhance(exposure)
+
+    tint_color = st.sidebar.color_picker("Pick a Tint Color (None for no tint)", "#ffffff")  
+    tint_intensity = st.sidebar.slider("Tint Intensity", 0.0, 1.0, 0.3)  
+
+    if tint_color != "#ffffff":  
+        tint_rgb = Image.new("RGB", image.size, tint_color)
+        image = Image.blend(image.convert("RGB"), tint_rgb, tint_intensity)  
+
+    if rotation:
+        image = image.rotate(rotation)
+
+    if blur:
+        image = image.filter(ImageFilter.GaussianBlur(blur))
+
+    width, height = image.size
+    image = image.crop((left * width, top * height, right * width, bottom * height))
+
+    if flip_horizontal:
+        image = ImageOps.mirror(image)
+    if flip_vertical:
+        image = ImageOps.flip(image)
+
+    if resize_width and resize_height:
+        image = image.resize((resize_width, resize_height))
+
+    if filter_option == "Grayscale":
+        image = ImageOps.grayscale(image).convert("RGBA")
+    elif filter_option == "Sepia":
+        sepia_image = ImageOps.colorize(ImageOps.grayscale(image), "#704214", "#C0A080")
+        image = sepia_image.convert("RGBA")
+    elif filter_option == "Invert Colors":
+        image = ImageOps.invert(image.convert("RGB")).convert("RGBA")
+    elif filter_option == "Edge Enhance":
+        image = image.filter(ImageFilter.EDGE_ENHANCE)
+    elif filter_option == "Detail":
+        image = image.filter(ImageFilter.DETAIL)
+    elif filter_option == "Vignette":
+        image = image.convert("RGB")
+        width, height = image.size
+        pixels = image.load() 
+        for i in range(width):
+            for j in range(height):
+                dist = ((i - width/2)**2 + (j - height/2)**2) ** 0.5
+                factor = 1 - min(dist / (width / 2), 1)  
+                r, g, b = image.getpixel((i, j))
+                pixels[i, j] = (int(r * factor), int(g * factor), int(b * factor))
+        image = image.convert("RGBA")
+
+    if hue_shift != 0:
+        image_np = np.array(image.convert("RGB"))
+        hsv_image = np.array(Image.fromarray(image_np).convert("HSV"))
+        hsv_image[:, :, 0] = (hsv_image[:, :, 0] + hue_shift) % 255
+        image = Image.fromarray(hsv_image, "HSV").convert("RGBA")
+
+    effect_option = st.sidebar.selectbox("Select Effect", ["None", "Pixelate", "Edge Detection", "Text Overlay", "Mosaic"])
+ 
+    if effect_option == "Text Overlay":
+        text = st.sidebar.text_input("Text to Add", "Hello World")
+        text_position = st.sidebar.selectbox("Text Position", ["Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right"])
+        font_color = st.sidebar.color_picker("Font Color", "#ffffff")  
+        text_opacity = st.sidebar.slider("Text Opacity", 0.0, 1.0, 1.0)  
+
+    if effect_option == "Pixelate":
+        image = image.resize((image.width // 10, image.height // 10), Image.NEAREST)  
+        image = image.resize((image.width * 10, image.height * 10), Image.NEAREST)  
+
+    elif effect_option == "Edge Detection":
+        image = image.convert("L")
+        image = image.filter(ImageFilter.FIND_EDGES)
+
+    elif effect_option == "Text Overlay" and text:
+        draw = ImageDraw.Draw(image)
+
+        text_bbox = draw.textbbox((0, 0), text)
+        text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+
+        if text_position == "Top Left":
+            position = (10, 10)
+        elif text_position == "Top Right":
+            position = (image.width - text_width - 10, 10)
+        elif text_position == "Center":
+            position = ((image.width - text_width) // 2, (image.height - text_height) // 2)
+        elif text_position == "Bottom Left":
+            position = (10, image.height - text_height - 10)
+        else:  
+            position = (image.width - text_width - 10, image.height - text_height - 10)
+
+        r, g, b = ImageColor.getrgb(font_color)
+        a = int(text_opacity * 255)  
+        font_color = (r, g, b, a)
+
+        draw.text(position, text, font_color, )
+
+    elif effect_option == "Mosaic":
+        mosaic_size = st.sidebar.slider("Mosaic Size", 1, 20, 10)
+        np_image = np.array(image)
+        for i in range(0, np_image.shape[0], mosaic_size):
+            for j in range(0, np_image.shape[1], mosaic_size):
+                color = np_image[i, j]
+                np_image[i:i+mosaic_size, j:j+mosaic_size] = color
+        image = Image.fromarray(np_image)
+
+    if add_timestamp_tag:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        image = add_timestamp(image, timestamp)
+
+    background_image = np.array(image)
+
+    st.sidebar.title("Sticker Options")
+    sticker_file = st.sidebar.file_uploader("Upload a Sticker", type=["jpg", "jpeg", "png"])
+    sticker_size = st.sidebar.slider("Sticker Size", 10, 500, 100)
+    sticker_position_x = st.sidebar.slider("Sticker X Position", 0, background_image.shape[1], background_image.shape[1] // 2)
+    sticker_position_y = st.sidebar.slider("Sticker Y Position", 0, background_image.shape[0], background_image.shape[0] // 2)
+
+    st.image(background_image, caption="Edited Image", use_column_width=True)
+
+    if sticker_file:
+        sticker = Image.open(sticker_file).convert("RGBA")
+        sticker = sticker.resize((sticker_size, sticker_size))
+        background_image.paste(sticker, (sticker_position_x, sticker_position_y), sticker)
+
+    file_name = st.text_input("Enter a file name for the edited image", "edited_image.png")
+    if not file_name.endswith(".png"):
+        file_name += ".png"
+
+    buf = io.BytesIO()
+    Image.fromarray(background_image).save(buf, format="PNG")
+    byte_im = buf.getvalue()
+    st.download_button(
+        label="Download Edited Image",
+        data=byte_im,
+        file_name=file_name,
+        mime="image/png"
+    )
+`,
+          },
+        },
+        document.getElementById("root")
+      );
+    </script>
+  </body>
+</html>
