@@ -74,10 +74,8 @@ if image_file:
 
     add_timestamp_tag = st.sidebar.checkbox("Add Timestamp Tag", False)
 
-    left = st.sidebar.slider("Crop Left", 0.0, 1.0, 0.0)
-    top = st.sidebar.slider("Crop Top", 0.0, 1.0, 0.0)
-    right = st.sidebar.slider("Crop Right", 0.0, 1.0, 1.0)
-    bottom = st.sidebar.slider("Crop Bottom", 0.0, 1.0, 1.0)
+    left = st.sidebar.slider("Crop Horizontal", 0.0, 1.0, 0.0)
+    top = st.sidebar.slider("Crop Vertical", 0.0, 1.0, 0.0)
 
     flip_horizontal = st.sidebar.checkbox("Flip Horizontally")
     flip_vertical = st.sidebar.checkbox("Flip Vertically")
@@ -116,7 +114,7 @@ if image_file:
         image = image.filter(ImageFilter.GaussianBlur(blur))
 
     width, height = image.size
-    image = image.crop((left * width, top * height, right * width, bottom * height))
+    image = image.crop((left * width, top * height, width, height))
 
     if flip_horizontal:
         image = ImageOps.mirror(image)
