@@ -7,7 +7,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
-    <title>stlite app</title>
+    <title>Personal Photo Editor Website</title>
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.72.1/build/stlite.css"
@@ -214,19 +214,18 @@ if image_file:
     sticker_position_x = st.sidebar.slider("Sticker X Position", 0, background_image.shape[1], background_image.shape[1] // 2)
     sticker_position_y = st.sidebar.slider("Sticker Y Position", 0, background_image.shape[0], background_image.shape[0] // 2)
 
-    st.image(background_image, caption="Edited Image", use_column_width=True)
-
     if sticker_file:
         sticker = Image.open(sticker_file).convert("RGBA")
         sticker = sticker.resize((sticker_size, sticker_size))
-        background_image.paste(sticker, (sticker_position_x, sticker_position_y), sticker)
+        image.paste(sticker, (sticker_position_x, sticker_position_y), sticker)
 
+    st.image(image, caption="Edited Image", use_container_width=True)
     file_name = st.text_input("Enter a file name for the edited image", "edited_image.png")
     if not file_name.endswith(".png"):
         file_name += ".png"
 
     buf = io.BytesIO()
-    Image.fromarray(background_image).save(buf, format="PNG")
+    image.save(buf, format="PNG")
     byte_im = buf.getvalue()
     st.download_button(
         label="Download Edited Image",
