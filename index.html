@@ -219,7 +219,7 @@ if image_file:
         sticker = sticker.resize((sticker_size, sticker_size))
         image.paste(sticker, (sticker_position_x, sticker_position_y), sticker)
 
-    st.image(image, caption="Edited Image", use_container_width=True)
+    st.image(image, caption="Edited Image", use_column_width=True)
     file_name = st.text_input("Enter a file name for the edited image", "edited_image.png")
     if not file_name.endswith(".png"):
         file_name += ".png"
